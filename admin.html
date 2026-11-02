@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REVN | Admin</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f7;color:#202124;font-family:Arial,sans-serif}
+header{height:75px;background:white;border-bottom:1px solid #e5e5e5;display:flex;align-items:center;justify-content:space-between;padding:0 5%}
+.logo{font-size:26px;font-weight:900;letter-spacing:4px}
+header a{color:#222;text-decoration:none;font-weight:bold}
+main{max-width:1150px;margin:30px auto;padding:0 18px}
+h1{font-size:28px}
+.muted{color:#858585;font-size:13px}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}
+.tab{background:white;color:#333;border:1px solid #ddd;padding:12px 18px}
+.tab.active{background:#17191d;color:white}
+.page{display:none}
+.page.active{display:block}
+.box{background:white;border:1px solid #e6e6e6;border-radius:14px;padding:22px;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.stat{background:white;border:1px solid #e6e6e6;border-radius:13px;padding:20px}
+.number{font-size:30px;font-weight:bold;margin-top:10px}
+input{width:100%;padding:13px;border:1px solid #ddd;border-radius:9px;margin:7px 0 14px;font-size:15px}
+button{border:0;border-radius:9px;padding:12px 16px;font-weight:bold;cursor:pointer}
+.dark{background:#17191d;color:white}
+.light{background:#eee;color:#222}
+.green{background:#e1f5e8;color:#16763a}
+.red{background:#ffe8e8;color:#a52222}
+.product{border:1px solid #e8e8e8;border-radius:12px;padding:16px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.order{border:1px solid #e7e7e7;border-radius:13px;padding:17px;margin-top:13px;position:relative}
+.order.delivered{background:#effaf2;border-color:#b9e7c5}
+.orderhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.status{font-size:12px;font-weight:bold;padding:7px 11px;border-radius:20px;background:#fff0cf;color:#8a6100}
+.status.process{background:#e8f1ff;color:#2459a6}
+.status.done{background:#d9f5e1;color:#16763a}
+.dots{background:#f1f1f1;font-size:22px;padding:5px 12px}
+.menu{display:none;position:absolute;right:15px;top:55px;background:white;border:1px solid #ddd;box-shadow:0 5px 20px #0002;border-radius:10px;z-index:3;min-width:190px;padding:7px}
+.menu button{display:block;width:100%;text-align:left;background:white;padding:11px}
+.menu button:hover{background:#f1f1f1}
+.empty{padding:25px;text-align:center;color:#888}
+@media(max-width:600px){header{padding:0 16px}.logo{font-size:21px}}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">REVN ADMIN</div>
+  <a href="index.html">VER TIENDA ↗</a>
+</header>
+
+<main>
+  <h1>Panel de control</h1>
+  <p class="muted">Administrá tu tienda REVN desde un solo lugar.</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="mostrarPagina('pedidos',this)">Pedidos</button>
+    <button class="tab" onclick="mostrarPagina('catalogo',this)">Catálogo</button>
+  </div>
+
+  <div id="pedidos" class="page active">
+
+    <div class="stats">
+      <div class="stat">Pedidos totales<div class="number" id="total">0</div></div>
+      <div class="stat">Pendientes<div class="number" id="pendientes">0</div></div>
+      <div class="stat">En proceso<div class="number" id="proceso">0</div></div>
+      <div class="stat">Entregados<div class="number" id="entregados">0</div></div>
+    </div>
+
+    <div class="box" style="margin-top:20px">
+      <h2>Administrar pedidos</h2>
+      <input id="buscar" placeholder="Buscar pedido por código o producto..." oninput="renderPedidos()">
+      <div id="listaPedidos"></div>
+    </div>
+
+  </div>
+
+  <div id="catalogo" class="page">
+
+    <div class="box">
+      <h2>Añadir producto</h2>
+      <p class="muted">Completá los datos y publicá el producto en tu tienda.</p>
+
+      <label>Nombre del producto</label>
+      <input id="nombre" placeholder="Ejemplo: 1000 Robux">
+
+      <label>Cantidad de Robux</label>
+      <input id="cantidad" type="number" placeholder="1000">
+
+      <label>Precio en pesos argentinos</label>
+      <input id="precio" type="number" placeholder="Ejemplo: 18000">
+
+      <label>Número de WhatsApp</label>
+      <input id="telefono" placeholder="5492345443851">
+
+      <button class="dark" onclick="publicarProducto()">PUBLICAR EN LA TIENDA</button>
+    </div>
+
+    <div class="box">
+      <h2>Productos publicados</h2>
+      <div id="listaProductos"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const KEY_PEDIDOS = "revn_pedidos";
+const KEY_PRODUCTOS = "revn_productos";
+
+function leer(key){
+  try{
+    const data = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(data) ? data : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function guardar(key,data){
+  localStorage.setItem(key,JSON.stringify(data));
+}
+
+function mostrarPagina(id,boton){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  boton.classList.add("active");
+}
+
+function escapar(s){
+  return String(s ?? "").replace(/[&<>"']/g,c=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  }[c]));
+}
+
+function dinero(valor){
+  return "$"+Number(valor || 0).toLocaleString("es-AR");
+}
+
+function renderPedidos(){
+  const pedidos = leer(KEY_PEDIDOS);
+  const filtro = document.getElementById("buscar").value.toLowerCase();
+
+  document.getElementById("total").textContent = pedidos.length;
+  document.getElementById("pendientes").textContent =
+    pedidos.filter(p=>(p.estado || "Pendiente")==="Pendiente").length;
+  document.getElementById("proceso").textContent =
+    pedidos.filter(p=>p.estado==="En proceso").length;
+  document.getElementById("entregados").textContent =
+    pedidos.filter(p=>p.estado==="Entregado").length;
+
+  const filtrados = pedidos.filter(p=>
+    String(p.codigo || "").toLowerCase().includes(filtro) ||
+    String(p.producto || "").toLowerCase().includes(filtro)
+  );
+
+  const lista = document.getElementById("listaPedidos");
+
+  if(!filtrados.length){
+    lista.innerHTML = '<div class="empty">Todavía no hay pedidos.</div>';
+    return;
+  }
+
+  lista.innerHTML = filtrados.slice().reverse().map(p=>{
+    const estado = p.estado || "Pendiente";
+    const done = estado === "Entregado";
+    const clase = done ? "done" : estado === "En proceso" ? "process" : "";
+    const codigo = String(p.codigo || "");
+
+    return `
+      <div class="order ${done ? "delivered" : ""}">
+        <div class="orderhead">
+          <strong>${escapar(codigo)}</strong>
+          <button class="dots" onclick="menuPedido('${escapar(codigo)}')">⋮</button>
+        </div>
+
+        <p>Producto: <b>${escapar(p.producto || "Sin producto")}</b></p>
+        <p>Precio: <b>${dinero(p.precio)}</b></p>
+        <p class="muted">Fecha: ${escapar(p.fecha || "Sin fecha")}</p>
+
+        ${Array.isArray(p.productos) ? `
+          <details>
+            <summary>Ver productos del carrito (${p.productos.length})</summary>
+            ${p.productos.map(item=>`
+              <p class="muted">${escapar(item.nombre)} — ${dinero(item.precio)}</p>
+            `).join("")}
+          </details>
+        ` : ""}
+
+        <span class="status ${clase}">${escapar(estado)}</span>
+
+        <div class="menu" id="menu-${escapar(codigo)}">
+          <button onclick="cambiarEstado('${escapar(codigo)}','Pendiente')">Marcar pendiente</button>
+          <button onclick="cambiarEstado('${escapar(codigo)}','En proceso')">Marcar en proceso</button>
+          <button onclick="cambiarEstado('${escapar(codigo)}','Entregado')">✓ Marcar entregado</button>
+          <button onclick="eliminarPedido('${escapar(codigo)}')">Eliminar pedido</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function menuPedido(codigo){
+  document.querySelectorAll(".menu").forEach(m=>m.style.display="none");
+  const menu = document.getElementById("menu-"+codigo);
+  if(menu) menu.style.display = "block";
+}
+
+function cambiarEstado(codigo,estado){
+  const pedidos = leer(KEY_PEDIDOS);
+  const pedido = pedidos.find(p=>p.codigo===codigo);
+  if(!pedido) return;
+
+  pedido.estado = estado;
+  guardar(KEY_PEDIDOS,pedidos);
+  renderPedidos();
+}
+
+function eliminarPedido(codigo){
+  if(!confirm("¿Querés eliminar este pedido?")) return;
+
+  guardar(KEY_PEDIDOS,leer(KEY_PEDIDOS).filter(p=>p.codigo!==codigo));
+  renderPedidos();
+}
+
+function publicarProducto(){
+  const nombre = document.getElementById("nombre").value.trim();
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precio").value);
+  const telefono = document.getElementById("telefono").value.trim();
+
+  const telefonoLimpio = telefono.replace(/[\s()+-]/g,"");
+
+  if(!nombre || !cantidad || !precio || !telefono){
+    alert("Completá todos los campos.");
+    return;
+  }
+
+  if(cantidad<=0 || precio<=0 || !/^\d{8,15}$/.test(telefonoLimpio)){
+    alert("Revisá la cantidad, el precio y el número de WhatsApp.");
+    return;
+  }
+
+  const productos = leer(KEY_PRODUCTOS);
+
+  productos.push({
+    id:"prod-"+Date.now(),
+    nombre:nombre,
+    cantidad:cantidad,
+    precio:precio,
+    telefono:telefonoLimpio
+  });
+
+  guardar(KEY_PRODUCTOS,productos);
+
+  document.getElementById("nombre").value="";
+  document.getElementById("cantidad").value="";
+  document.getElementById("precio").value="";
+  document.getElementById("telefono").value="";
+
+  renderProductos();
+  alert("Producto publicado en el catálogo de REVN.");
+}
+
+function renderProductos(){
+  const productos = leer(KEY_PRODUCTOS);
+  const lista = document.getElementById("listaProductos");
+
+  if(!productos.length){
+    lista.innerHTML = '<div class="empty">Todavía no publicaste productos.</div>';
+    return;
+  }
+
+  lista.innerHTML = productos.map(p=>`
+    <div class="product">
+      <div>
+        <b>${escapar(p.nombre)}</b><br>
+        <span class="muted">
+          ${Number(p.cantidad || 0).toLocaleString("es-AR")} Robux ·
+          ${dinero(p.precio)} · WhatsApp ${escapar(p.telefono)}
+        </span>
+      </div>
+      <button class="red" onclick="eliminarProducto('${escapar(p.id)}')">Eliminar</button>
+    </div>
+  `).join("");
+}
+
+function eliminarProducto(id){
+  if(!confirm("¿Eliminar este producto de la tienda?")) return;
+
+  guardar(KEY_PRODUCTOS,leer(KEY_PRODUCTOS).filter(p=>p.id!==id));
+  renderProductos();
+}
+
+// Actualización automática cuando la tienda crea o cambia pedidos
+window.addEventListener("storage",function(event){
+  if(event.key===KEY_PEDIDOS){
+    renderPedidos();
+  }
+  if(event.key===KEY_PRODUCTOS){
+    renderProductos();
+  }
+});
+
+renderPedidos();
+renderProductos();
+</script>
+
+</body>
+</html>
